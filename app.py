@@ -30,28 +30,66 @@ if submitted:
 
 # Load Data
 df = pd.read_csv(FILE)
+df = pd.read_csv(FILE)
+df["Date"] = pd.to_datetime(df["Date"])
+
+selected_month = st.selectbox(
+    "📅 Select Month",
+    sorted(df["Date"].dt.strftime("%B %Y").unique(), reverse=True)
+)
+
+filtered_df = df[df["Date"].dt.strftime("%B %Y") == selected_month]
 
 st.subheader("📋 All Transactions")
-st.dataframe(df)
+st.dataframe(filtered_df)
+csv = filtered_df.to_csv(index=False).encode('utf-8')
+
+st.download_button(
+    "📥 Download Monthly Report",
+    csv,
+    "finance_report.csv",
+    "text/csv"
+)
 
 # Summary
-income = df[df["Type"]=="Income"]["Amount"].sum()
-expense = df[df["Type"]=="Expense"]["Amount"].sum()
+income = filtered_df[filtered_df["Type"]=="Income"]["Amount"].sum()
+expense = filtered_df[filtered_df["Type"]=="Expense"]["Amount"].sum()
 balance = income - expense
 
 col1, col2, col3 = st.columns(3)
-col1.metric("Total Income", f"₹{income}")
-col2.metric("Total Expense", f"₹{expense}")
-col3.metric("Balance", f"₹{balance}")
+col1.metric("💰 Total Income", f"₹{income}")
+col2.metric("💸 Total Expense", f"₹{expense}")
+col3.metric("🏦 Balance", f"₹{balance}")
+st.subheader("🎯 Budget Alert")
+
+budget = st.number_input(
+    "Set Monthly Expense Budget",
+    min_value=0.0,
+    value=10000.0
+)
+
+if expense > budget:
+    st.error(f"⚠ Budget Exceeded by ₹{expense - budget:.2f}")
+else:
+    st.success(f"₹{budget - expense:.2f} Remaining in Budget")
 
 # Expense Chart
 expense_df = df[df["Type"]=="Expense"]
 
+expense_df = filtered_df[filtered_df["Type"] == "Expense"]
+
 if not expense_df.empty:
-    st.subheader("📊 Expense by Category")
+    st.subheader("📊 Expense Analysis")
+
     category_sum = expense_df.groupby("Category")["Amount"].sum()
 
-    fig, ax = plt.subplots()
-    ax.pie(category_sum, labels=category_sum.index, autopct='%1.1f%%')
-    st.pyplot(fig)
+    col1, col2 = st.columns(2)
+
+    with col1:
+        fig, ax = plt.subplots()
+        ax.pie(category_sum, labels=category_sum.index, autopct='%1.1f%%')
+        st.pyplot(fig)
+
+    with col2:
+        st.bar_chart(category_sum)
     
